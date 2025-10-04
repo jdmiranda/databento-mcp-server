@@ -3,6 +3,8 @@
  * Handles communication with DataBento historical and real-time APIs
  */
 
+import { DataBentoHTTP } from "./http/databento-http.js";
+
 interface QuoteData {
   symbol: string;
   price: number;
@@ -28,13 +30,6 @@ interface SessionInfo {
   timestamp: Date;
 }
 
-const DATABENTO_CONFIG = {
-  baseUrl: "https://hist.databento.com",
-  timeout: 15000,
-  retryAttempts: 3,
-  retryDelayMs: 1000,
-};
-
 // Symbol mapping for continuous contracts
 const SYMBOL_MAP: Record<string, string> = {
   ES: "ES.c.0", // E-mini S&P 500 continuous contract
@@ -47,69 +42,12 @@ const DATASET = "GLBX.MDP3"; // CME Group Market Data Platform 3
  * DataBento API Client
  */
 export class DataBentoClient {
-  private readonly apiKey: string;
+  private readonly http: DataBentoHTTP;
   private priceCache: Map<string, { data: QuoteData; timestamp: number }> = new Map();
   private readonly CACHE_TTL = 30000; // 30 seconds
 
   constructor(apiKey: string) {
-    if (!apiKey) {
-      throw new Error("DATABENTO_API_KEY is required");
-    }
-    if (!apiKey.startsWith("db-")) {
-      throw new Error('DATABENTO_API_KEY must start with "db-"');
-    }
-    this.apiKey = apiKey;
-  }
-
-  /**
-   * Make HTTP request to DataBento API with retries
-   */
-  private async makeRequest(
-    endpoint: string,
-    params: Record<string, any> = {}
-  ): Promise<string> {
-    const url = new URL(endpoint, DATABENTO_CONFIG.baseUrl);
-
-    // Add query parameters
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        url.searchParams.append(key, String(value));
-      }
-    });
-
-    for (let attempt = 1; attempt <= DATABENTO_CONFIG.retryAttempts; attempt++) {
-      try {
-        const response = await fetch(url.toString(), {
-          method: "GET",
-          headers: {
-            Authorization: `Basic ${Buffer.from(`${this.apiKey}:`).toString("base64")}`,
-            Accept: "application/json",
-            "User-Agent": "DataBento-MCP-Server/1.0",
-          },
-          signal: AbortSignal.timeout(DATABENTO_CONFIG.timeout),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
-        }
-
-        return await response.text();
-      } catch (error) {
-        if (attempt === DATABENTO_CONFIG.retryAttempts) {
-          throw new Error(
-            `DataBento API request failed after ${DATABENTO_CONFIG.retryAttempts} attempts: ${error}`
-          );
-        }
-
-        // Wait before retry with exponential backoff
-        await new Promise((resolve) =>
-          setTimeout(resolve, DATABENTO_CONFIG.retryDelayMs * attempt)
-        );
-      }
-    }
-
-    throw new Error("Unexpected error in DataBento request");
+    this.http = new DataBentoHTTP(apiKey);
   }
 
   /**
@@ -144,7 +82,7 @@ export class DataBentoClient {
       limit: 100,
     };
 
-    const response = await this.makeRequest("/v0/timeseries.get_range", params);
+    const response = await this.http.get("/v0/timeseries.get_range", params);
 
     if (!response || response.length === 0) {
       throw new Error(`No quote data available for ${symbol}`);
@@ -223,7 +161,7 @@ export class DataBentoClient {
       limit: 1000,
     };
 
-    const response = await this.makeRequest("/v0/timeseries.get_range", params);
+    const response = await this.http.get("/v0/timeseries.get_range", params);
 
     if (!response || response.length === 0) {
       throw new Error(`No bar data available for ${symbol}`);

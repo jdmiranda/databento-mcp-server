@@ -1,0 +1,106 @@
+[
+  {
+    "name": "batch_submit_job",
+    "description": "Submit a batch data download job for large historical datasets. Returns job ID and status. Job processing is asynchronous.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dataset": {
+          "type": "string",
+          "description": "Dataset code (e.g., GLBX.MDP3, XNAS.ITCH)"
+        },
+        "symbols": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Array of symbols (max 2000)",
+          "maxItems": 2000
+        },
+        "schema": {
+          "type": "string",
+          "enum": ["trades", "tbbo", "mbp-1", "mbp-10", "ohlcv-1s", "ohlcv-1m", "ohlcv-1h", "ohlcv-1d", "definition", "statistics", "status", "imbalance"],
+          "description": "Data record schema"
+        },
+        "start": {
+          "type": "string",
+          "description": "Start date (YYYY-MM-DD or ISO 8601)"
+        },
+        "end": {
+          "type": "string",
+          "description": "Optional end date (YYYY-MM-DD or ISO 8601)"
+        },
+        "encoding": {
+          "type": "string",
+          "enum": ["dbn", "csv", "json"],
+          "description": "Output encoding (default: dbn)"
+        },
+        "compression": {
+          "type": "string",
+          "enum": ["none", "zstd", "gzip"],
+          "description": "Compression type (default: zstd)"
+        },
+        "stype_in": {
+          "type": "string",
+          "enum": ["instrument_id", "raw_symbol", "continuous", "parent", "nasdaq", "cms", "isin"],
+          "description": "Input symbology type (default: raw_symbol)"
+        },
+        "stype_out": {
+          "type": "string",
+          "enum": ["instrument_id", "raw_symbol", "continuous", "parent", "nasdaq", "cms", "isin"],
+          "description": "Output symbology type (default: instrument_id)"
+        },
+        "split_duration": {
+          "type": "string",
+          "description": "Split files by duration (e.g., day, week, month)"
+        },
+        "split_size": {
+          "type": "number",
+          "description": "Split files by size in bytes"
+        },
+        "split_symbols": {
+          "type": "boolean",
+          "description": "Split files by symbol (default: false)"
+        },
+        "limit": {
+          "type": "number",
+          "description": "Limit number of records"
+        }
+      },
+      "required": ["dataset", "symbols", "schema", "start"]
+    }
+  },
+  {
+    "name": "batch_list_jobs",
+    "description": "List all batch jobs with their current status. Optionally filter by job states or time range.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "states": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["received", "queued", "processing", "done", "expired"]
+          },
+          "description": "Filter by job states"
+        },
+        "since": {
+          "type": "string",
+          "description": "Filter jobs since timestamp (ISO 8601)"
+        }
+      }
+    }
+  },
+  {
+    "name": "batch_download",
+    "description": "Get download information for a completed batch job. Returns download URLs and metadata. Does NOT stream file content through MCP.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "type": "string",
+          "description": "Batch job identifier"
+        }
+      },
+      "required": ["job_id"]
+    }
+  }
+]
